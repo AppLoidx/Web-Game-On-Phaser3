@@ -1,0 +1,2 @@
+spaceship - width : 94 ; height : 100; idle - 4 ph ; left, right - 4 ph; idle-right - 4 ph;
+idle -> left -> right -> idle-right
