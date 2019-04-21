@@ -71,18 +71,18 @@
           this.damage = 1;
           this.isFriendly = false;
           this.liveTime = 3000;
-          this.angle = 0;
-
+          this.angleVar = 0;
           this.xSpeed = 0;
           this.ySpeed = 0;
       },
       fire: function (player, target)
       {
           this.setPosition(player.x, player.y);
-          this.angle = Phaser.Math.Angle.Between(player.x, player.y, target.x, target.y);
+          this.angleVar = Phaser.Math.Angle.Between(player.x, player.y, target.x, target.y);
+          this.angle = this.angleVar;
           this.speed = Phaser.Math.GetSpeed(-this.speed, 1);
-          this.xSpeed = Math.cos(this.angle) * this.speed;
-          this.ySpeed = Math.sin(this.angle) * this.speed;
+          this.xSpeed = Math.cos(this.angleVar) * this.speed;
+          this.ySpeed = Math.sin(this.angleVar) * this.speed;
 
           this.born = 0;
       },
@@ -104,7 +104,150 @@
           }
           if (this.y > 650 || this.x > 1000 || this.y < 0 || this.x < 0){
             this.destroy();
+
           }
+      }
+    });
+
+    var BossRocket = new Phaser.Class({
+      Extends: EnemyBullet,
+      initialize:
+      function Bullet (scene)
+      {
+          Phaser.GameObjects.Image.call(this, scene, 0, 0, 'boss-rocket');
+
+          this.speed = 400;
+          this.born = 0;
+          this.damage = 3;
+          this.isFriendly = false;
+          this.liveTime = 3000;
+          this.angleVar = 0;
+          this.xSpeed = 0;
+          this.ySpeed = 0;
+      },
+      setAngleDeg: function(player, target){
+        this.angle = Phaser.Math.Angle.Between(player.y, player.x, target.y, target.x) * -180 / 3.14;
+        console.log(player.x + " " + target.x);
+        console.log(player.y + " " + target.y);
+        console.log(this.angle);
+      },
+      fire: function(player, target)
+      {
+          this.setPosition(player.x, player.y);
+          this.angleVar = Phaser.Math.Angle.Between(player.x, player.y, target.x, target.y);
+          this.speed = Phaser.Math.GetSpeed(-this.speed, 1);
+          this.xSpeed = Math.cos(this.angleVar) * this.speed;
+          this.ySpeed = Math.sin(this.angleVar) * this.speed;
+
+          this.born = 0;
+      }
+    });
+
+    var BossBullet = new Phaser.Class({
+      Extends: EnemyBullet,
+      initialize:
+      function Bullet (scene)
+      {
+          Phaser.GameObjects.Image.call(this, scene, 0, 0, 'boss-bullet');
+
+          this.speed = 400;
+          this.born = 0;
+          this.damage = 5;
+          this.isFriendly = false;
+          this.liveTime = 3000;
+          this.angle = 0;
+
+          this.xSpeed = 0;
+          this.ySpeed = 0;
+      },
+    });
+    var Boss = new Phaser.Class({
+      Extends: Phaser.GameObjects.Image,
+
+      initialize:
+      function Boss (scene)
+      {
+          Phaser.GameObjects.Image.call(this, scene, 0, 0, 'boss');
+          this.speed  = Phaser.Math.GetSpeed(180, 1);
+          this.rotateSpeed = Phaser.Math.GetSpeed(30, 1);
+          this.hp = 50;
+          this.lastFire = 0;
+          this.notFiredTime = 1305;
+          this.setScale(0.5, 0.5);
+          this.positionChangeTime = 10000;
+          this.positionChangedTime = 0;
+          this.firstPositionX = 200;
+          this.secondPositionX = 600;
+          this.bulletQueue = 5;
+          this.queueTime = 150;
+
+      },
+      setSpeed:
+      function (speed){
+        this.speed = Phaser.Math.GetSpeed(speed, 1);
+      },
+      takeHit:
+      function (bullet){
+        if(bullet.isFriendly){
+          bullet.destroy();
+          bullets.clear(true);
+          this.hp = this.hp - bullet.damage;
+
+          if (this.hp <= 0){
+            simpleEnemiesCount--;
+
+            explosionTo(this.x, this.y);
+            this.destroy();
+          }
+        }
+      },
+
+      place:
+      function(x, y){
+        this.setPosition(x,y);
+      },
+      setHp:
+      function (newHp){
+        this.hp = newHp;
+      },
+
+      update:
+      function (time, delta){
+        // Движение босса
+        // Двигается из стороны в сторону
+        this.positionChangeTime += delta;
+        if (this.positionChangedTime > this.positionChangeTime && this.x != this.firstPositionX){
+          this.x += this.speed * delta;
+        } else if (this.positionChangedTime > this.positionChangeTime && this.x != this.secondPositionX){
+          this.x -= this.speed * delta;
+        } else if (this.x == this.firstPositionX || this.x == this.secondPositionX){
+          this.positionChangedTime = 0;
+        }
+
+
+        // стрельба рвкетами
+        this.notFiredTime += delta;
+        if (this.notFiredTime > 1300){
+          this.queueTime +=delta;
+          if (this.queueTime > 100 && this.bulletQueue > 0){
+            this.bulletQueue -= 1;
+            var bullet = bossRockets.get();
+            bullet.setSpeed(-300);
+            bullet.setAngleDeg(this, player);
+            bullet.setFriendly(false);
+            bullet.setActive(true);
+            bullet.setVisible(true);
+            bullet.fire(this, player);
+            this.queueTime = 0;
+          }
+          if (bulletQueue < 1){
+            this.bulletQueue = 5;
+            this.notFiredTime = 0;
+          }
+      }
+
+
+
       }
     });
 
@@ -137,6 +280,7 @@
       function (bullet){
         if(bullet.isFriendly){
           bullet.destroy();
+          bullets.clear(true);
           this.hp = this.hp - bullet.damage;
 
           if (this.hp <= 0){
@@ -252,11 +396,14 @@
     // screen sizes
     var w = 800;
     var h = 650;
-
+    var gameResumed = false;
     var player;
     var hp = 100;
     var score = 0;
     var simpleEnemiesCount = 0;
+    var wavesCount = 0;
+    var waveSetted = false;
+    var levelCount = 0;
     var maxBulletQueue = 3;
     var bulletQueue = 0;
     var self;
@@ -267,8 +414,11 @@
     var shipBullets;
     var lastFired = 0;
 
+    var boss;
+
     var bullets;
     var enemyBullets;
+    var bossRockets;
     var enemies;
 
     var progressBar;
@@ -293,7 +443,11 @@
         this.load.image('invader', 'res/sprites/enemies/enemy-3.png');
         this.load.audio("doom", "audio/doom.mp3");
         this.load.audio("marathon", "audio/marathon.mp3");
+        this.load.image("start-button", "http://localhost/html-game/res/sprites/ui/start-100-50.png");
         this.load.spritesheet('boom', 'res/sprites/effects/explosion.png', { frameWidth: 64, frameHeight: 64, endFrame: 23 });
+        this.load.image("boss", "res/sprites/enemies/boss-1.png");
+        this.load.image("boss-bullet", "res/sprites/bullets/boss-normal-bullet.png");
+        this.load.image("boss-rocket", "res/sprites/bullets/boss-rocket.png");
 
     }
 
@@ -310,18 +464,14 @@
         // bullets
         bullets = this.physics.add.group({ classType: Bullet, runChildUpdate: true });
         enemyBullets = this.physics.add.group({ classType: EnemyBullet, runChildUpdate: true });
+        bossRockets = this.physics.add.group({classType: BossRocket, runChildUpdate: true});
 
-        // mediumEnemy
         enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true });
 
         explosions = this.add.group();
         explosions.createMultiple(20, 'kaboom');
 
-        // aliens = this.physics.add.staticGroup();
-        // aliens.create(0, 0, 'invader');
-        // aliens.create(50, 250, 'invader');
-        // aliens.create(750, 220, 'invader');
-
+        boss = this.physics.add.group({ classType: Boss, runChildUpdate: true });
 
         player = this.physics.add.sprite(400, 600, 'dude').setDepth(1);
         player.setBounce(0.2);
@@ -373,10 +523,14 @@
 
         this.anims.create(config);
         self = this;
+        const helloButton = this.add.image(400, 325, "start-button");
+        helloButton.setInteractive();
+        helloButton.on("pointerdown", () => { gameResumed = true; helloButton.destroy(); console.log("lol") });
     }
 
     function update (time, delta)
     {
+      if (gameResumed) {
       if (cursors.left.isDown)
       {
           player.setVelocityX(-ship_speed);
@@ -429,9 +583,60 @@
       this.physics.add.collider(bullets, enemies, bulletAndAlienClassCollision, null, this);
       this.physics.add.collider(enemyBullets, player, bulletAndPlayerCollision, null, this);
 
-      if (simpleEnemiesCount < 2){
-        randomSpawn(5, enemies);
+      levelCount = 2;
+
+      switch (levelCount) {
+        // level 1
+        case 0:
+          setWave(2);
+          if (simpleEnemiesCount < 2 && wavesCount > 0){
+            randomSpawn(5, enemies);
+            wavesCount--;
+            console.log(wavesCount + " " + simpleEnemiesCount )
+          }
+          if (wavesCount == 0 && simpleEnemiesCount == 0){
+            enemies.clear(true);
+            newLevelSetUp();
+          }
+          break;
+        // level 2
+        case 1:
+          setWave(3);
+          if (simpleEnemiesCount < 3 && wavesCount > 0){
+            randomSpawn(7, enemies);
+            wavesCount--;
+
+          }
+          if (wavesCount == 0 && simpleEnemiesCount == 0){
+            enemies.clear(true);
+            newLevelSetUp();
+          }
+          break;
+        // boss stage
+        case 2:
+          if (!waveSetted){
+          let bossEnemy = boss.get();
+          bossEnemy.place(200, 200);
+          bossEnemy.setVisible(true);
+          bossEnemy.setActive(true);
+          waveSetted = true;
+        }
+          break;
+
+        default:
+
       }
+    }
+    }
+    function setWave(count){
+      if (!waveSetted){
+          wavesCount = 2;
+          waveSetted = true;
+      }
+    }
+    function newLevelSetUp(){
+      this.waveSetted = false;
+      levelCount++;
     }
     function bulletAndPlayerCollision(player, bullet){
 
