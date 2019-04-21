@@ -59,6 +59,140 @@
 
     });
 
+    // *************** ENEMY CLASS START ***************************
+
+        var Enemy = new Phaser.Class({
+          Extends: Phaser.GameObjects.Image,
+
+          initialize:
+          function Enemy (scene)
+          {
+              Phaser.GameObjects.Image.call(this, scene, 0, 0, 'invader');
+              this.speed  = Phaser.Math.GetSpeed(180, 1);
+              this.rotateSpeed = Phaser.Math.GetSpeed(150, 1);
+              this.hp = 1;
+              this.lastFire = 0;
+              this.notFiredTime = 0;
+              this.directionX = 0;
+              this.directionY = 0;
+              this.borderChangeCalled = true;
+
+              this.getOutFromBorderTime = 700;
+
+              this.directionChangeTime = 1700;
+              this.notChangedTime = 1701;
+          },
+          setSpeed:
+          function (speed){
+            this.speed = Phaser.Math.GetSpeed(speed, 1);
+          },
+          takeHit:
+          function (bullet){
+            if(bullet.isFriendly){
+              bullet.destroy();
+              this.hp = this.hp - bullet.damage;
+
+              if (this.hp <= 0){
+                simpleEnemiesCount--;
+
+                explosionTo(this.x, this.y);
+                this.destroy();
+              }
+            }
+          },
+
+          place:
+          function(x, y){
+            this.setPosition(x,y);
+          },
+          setHp:
+          function (newHp){
+            this.hp = newHp;
+          },
+
+          update:
+          function (time, delta){
+            this.notFiredTime += delta;
+
+            if (this.notFiredTime > 1000){
+              var bullet = enemyBullets.get();
+              bullet.setSpeed(-300);
+              bullet.setFriendly(false);
+              bullet.setActive(true);
+              bullet.setVisible(true);
+              bullet.fire(this, player);
+              this.notFiredTime = 0;
+            }
+
+            this.notChangedTime += delta;
+            this.getOutFromBorderTime -= delta;
+            if (this.notChangedTime > this.directionChangeTime || ((this.y < 50 || h - this.y < 250 || this.x < 50 || w - this.x < 50) && this.getOutFromBorderTime < 1)){
+              let minY = -1;
+              let maxY =  1;
+              let minX = -1;
+              let maxX =  1;
+
+              if (this.y < 50){
+                minY = 0;
+                if (this.y  < 40){
+                  minY = 1;
+                }
+              } else if (h - this.y < 250){
+                maxY = 0;
+                if (h - this.y < 240){
+                  maxY = -1;
+                }
+              }
+
+              if (this.x < 50){
+                minX = 0;
+                if (this.x  < 40){
+                  minX = 1;
+                }
+              } else if (w - this.x < 50){
+                maxX = 0;
+                if (w - this.x < 40){
+                  maxX = -1;
+                }
+              }
+
+              this.directionX = getRandomInRange(minX, maxX);
+              this.directionY = getRandomInRange(minY, maxY);
+
+              this.notChangedTime = 0;
+
+            }
+            if (this.directionX === 1 && this.directionY === 1){
+              if (this.angle > - 45){
+                this.angle -= this.rotateSpeed * delta;
+              }
+              //this.angle = -20;
+            } else if (this.directionX === -1 && this.directionY === 1){
+              if (this.angle < 45){
+                this.angle += this.rotateSpeed * delta;
+            } else if (this.directionX === -1 && this.directionY === 0){
+                if (this.angle < 90){
+                  this.angle += this.rotateSpeed * delta;
+                }
+            } else if (this.directionX === 0 && this.directionY === -1){
+              if (this.angle > 179){
+                this.angle -= this.rotateSpeed * delta;
+              }
+            }
+              //this.angle = 20;
+            } else {
+              this.angle = 0;
+            }
+            this.y = this.y + delta * this.speed * this.directionY;
+            this.x = this.x + delta * this.speed * this.directionX;
+
+
+          }
+        });
+
+// #################### ENEMY CLASS END #############################
+
+// ******************** ENEMY BULLET CLASS START ********************
     var EnemyBullet = new Phaser.Class({
       Extends: Bullet,
       initialize:
@@ -126,10 +260,8 @@
           this.ySpeed = 0;
       },
       setAngleDeg: function(player, target){
-        this.angle = Phaser.Math.Angle.Between(player.y, player.x, target.y, target.x) * -180 / 3.14;
-        console.log(player.x + " " + target.x);
-        console.log(player.y + " " + target.y);
-        console.log(this.angle);
+        //this.angle = Phaser.Math.Angle.Between(player.y, player.x, target.y, target.x) * -180 / 3.14;
+        this.setRotation(Phaser.Math.Angle.Between(player.y, player.x, target.y, target.x) * -1);
       },
       fire: function(player, target)
       {
@@ -149,7 +281,8 @@
       function Bullet (scene)
       {
           Phaser.GameObjects.Image.call(this, scene, 0, 0, 'boss-bullet');
-
+          this.setScale(0.5, 0.5);
+          this.setSize(this.width/2, this.height/2);
           this.speed = 400;
           this.born = 0;
           this.damage = 5;
@@ -160,9 +293,24 @@
           this.xSpeed = 0;
           this.ySpeed = 0;
       },
+
+      fire:
+      function (player, angle){
+        this.setPosition(player.x, player.y);
+        this.speed = Phaser.Math.GetSpeed(-this.speed, 1);
+        this.xSpeed = Math.cos(angle) * this.speed;
+        this.ySpeed = Math.sin(angle) * this.speed;
+
+        this.born = 0;
+      }
     });
+
+    // ############### BOSS BULLET CLASS END #######################
+
+    // *************** BOSS CLASS START ***************************
+
     var Boss = new Phaser.Class({
-      Extends: Phaser.GameObjects.Image,
+      Extends: Enemy,//Phaser.GameObjects.Image,
 
       initialize:
       function Boss (scene)
@@ -170,36 +318,52 @@
           Phaser.GameObjects.Image.call(this, scene, 0, 0, 'boss');
           this.speed  = Phaser.Math.GetSpeed(180, 1);
           this.rotateSpeed = Phaser.Math.GetSpeed(30, 1);
-          this.hp = 50;
+          this.allHp = 30;
+          this.hp = 30;
           this.lastFire = 0;
           this.notFiredTime = 1305;
+          this.setScaleMode(Phaser.ScaleModes.NEAREST);
           this.setScale(0.5, 0.5);
+          this.setSize(this.width/2, this.height/2);
           this.positionChangeTime = 10000;
-          this.positionChangedTime = 0;
+          this.positionChangedTime = 5002;
+          this.onMove = true;
+          this.onMoveSetted = false;
           this.firstPositionX = 200;
           this.secondPositionX = 600;
           this.bulletQueue = 5;
           this.queueTime = 150;
+          this.massiveFire = 0;
 
-      },
-      setSpeed:
-      function (speed){
-        this.speed = Phaser.Math.GetSpeed(speed, 1);
+          this.progressBossBox = self.add.graphics();
+          this.progressBossBar = self.add.graphics();
+          this.progressBossBox.fillStyle(0x5D0707, 0.8);
+          this.progressBossBox.fillRect(this.x - 50, this.y + 170, 100, 10);
+          this.progressBossBar.clear();
+          this.progressBossBar.fillStyle(0x087316, 1);
+          this.progressBossBar.fillRect(this.x - 50, this.y + 170, this.hp/this.allHp * 100, 10);
+
       },
       takeHit:
       function (bullet){
         if(bullet.isFriendly){
           bullet.destroy();
-          bullets.clear(true);
           this.hp = this.hp - bullet.damage;
 
           if (this.hp <= 0){
             simpleEnemiesCount--;
 
-            explosionTo(this.x, this.y);
+            explosionTo(this.x, this.y, 3);
             this.destroy();
+            this.progressBossBar.destroy();
+            this.progressBossBox.destroy();
+            bossActive = false;
           }
         }
+      },
+      setSpeed:
+      function (speed){
+        this.speed = Phaser.Math.GetSpeed(speed, 1);
       },
 
       place:
@@ -207,7 +371,10 @@
         this.setPosition(x,y);
       },
       setHp:
-      function (newHp){
+      function (newHp, changeAllHp = false){
+        if (changeAllHp){
+          this.allHp = newHp;
+        }
         this.hp = newHp;
       },
 
@@ -215,19 +382,30 @@
       function (time, delta){
         // Движение босса
         // Двигается из стороны в сторону
-        this.positionChangeTime += delta;
-        if (this.positionChangedTime > this.positionChangeTime && this.x != this.firstPositionX){
+        this.progressBossBar.clear();
+        this.progressBossBox.clear();
+        this.progressBossBox.fillStyle(0x5D0707, 0.8);
+        this.progressBossBar.fillStyle(0x087316, 1);
+        this.progressBossBox.fillRect(this.x - 50, this.y + 170, 100, 10);
+        this.progressBossBar.fillRect(this.x - 50, this.y + 170, this.hp/this.allHp * 100, 10);
+
+
+        this.positionChangedTime += delta;
+        if (this.positionChangedTime > 5000 && this.x <= this.firstPositionX){
+
           this.x += this.speed * delta;
-        } else if (this.positionChangedTime > this.positionChangeTime && this.x != this.secondPositionX){
-          this.x -= this.speed * delta;
-        } else if (this.x == this.firstPositionX || this.x == this.secondPositionX){
-          this.positionChangedTime = 0;
+          this.positionReseted = false;
+        } else if (this.positionChangedTime > 5000 && this.x <= this.secondPositionX){
+          this.x+= this.speed * delta;
+          this.positionReseted = false;
         }
+
 
 
         // стрельба рвкетами
         this.notFiredTime += delta;
-        if (this.notFiredTime > 1300){
+        if (this.notFiredTime > 1100){
+
           this.queueTime +=delta;
           if (this.queueTime > 100 && this.bulletQueue > 0){
             this.bulletQueue -= 1;
@@ -241,139 +419,33 @@
             this.queueTime = 0;
           }
           if (bulletQueue < 1){
-            this.bulletQueue = 5;
+            this.bulletQueue = 8;
             this.notFiredTime = 0;
           }
-      }
-
-
-
-      }
-    });
-
-    var Enemy = new Phaser.Class({
-      Extends: Phaser.GameObjects.Image,
-
-      initialize:
-      function Enemy (scene)
-      {
-          Phaser.GameObjects.Image.call(this, scene, 0, 0, 'invader');
-          this.speed  = Phaser.Math.GetSpeed(180, 1);
-          this.rotateSpeed = Phaser.Math.GetSpeed(30, 1);
-          this.hp = 1;
-          this.lastFire = 0;
-          this.notFiredTime = 0;
-          this.directionX = 0;
-          this.directionY = 0;
-          this.borderChangeCalled = true;
-
-          this.getOutFromBorderTime = 700;
-
-          this.directionChangeTime = 1700;
-          this.notChangedTime = 1701;
-      },
-      setSpeed:
-      function (speed){
-        this.speed = Phaser.Math.GetSpeed(speed, 1);
-      },
-      takeHit:
-      function (bullet){
-        if(bullet.isFriendly){
-          bullet.destroy();
-          bullets.clear(true);
-          this.hp = this.hp - bullet.damage;
-
-          if (this.hp <= 0){
-            simpleEnemiesCount--;
-
-            explosionTo(this.x, this.y);
-            this.destroy();
-          }
-        }
-      },
-
-      place:
-      function(x, y){
-        this.setPosition(x,y);
-      },
-      setHp:
-      function (newHp){
-        this.hp = newHp;
-      },
-
-      update:
-      function (time, delta){
-        this.notFiredTime += delta;
-
-        if (this.notFiredTime > 1000){
-          var bullet = enemyBullets.get();
-          bullet.setSpeed(-300);
-          bullet.setFriendly(false);
-          bullet.setActive(true);
-          bullet.setVisible(true);
-          bullet.fire(this, player);
-          this.notFiredTime = 0;
         }
 
-        this.notChangedTime += delta;
-        this.getOutFromBorderTime -= delta;
-        if (this.notChangedTime > this.directionChangeTime || ((this.y < 50 || h - this.y < 250 || this.x < 50 || w - this.x < 50) && this.getOutFromBorderTime < 1)){
-          let minY = -1;
-          let maxY =  1;
-          let minX = -1;
-          let maxX =  1;
-
-          if (this.y < 50){
-            minY = 0;
-            if (this.y  < 40){
-              minY = 1;
-            }
-          } else if (h - this.y < 250){
-            maxY = 0;
-            if (h - this.y < 240){
-              maxY = -1;
-            }
+        this.massiveFire += delta;
+        if (this.massiveFire > 2600){
+          for (let i = 0; i < 10 ; i++){
+            var bullet = bossBullets.get();
+            bullet.setSpeed(-300);
+            bullet.setFriendly(false);
+            bullet.setActive(true);
+            bullet.setVisible(true);
+            bullet.fire(this, 9 * i / 30);
           }
-
-          if (this.x < 50){
-            minX = 0;
-            if (this.x  < 40){
-              minX = 1;
-            }
-          } else if (w - this.x < 50){
-            maxX = 0;
-            if (w - this.x < 40){
-              maxX = -1;
-            }
-          }
-
-          this.directionX = getRandomInRange(minX, maxX);
-          this.directionY = getRandomInRange(minY, maxY);
-
-          this.notChangedTime = 0;
-
+          this.massiveFire = 0;
         }
-        if (this.directionX == 1 && this.directionY == 1){
-          if (this.angle > - 20){
-            this.angle -= this.rotateSpeed * delta;
-          }
-          //this.angle = -20;
-        } else if (this.directionX == -1 && this.directionY == 1){
-          if (this.angle < 20){
-            this.angle += this.rotateSpeed * delta;
-          }
-          //this.angle = 20;
-        } else {
-          this.angle = 0;
-        }
-        this.y = this.y + delta * this.speed * this.directionY;
-        this.x = this.x + delta * this.speed * this.directionX;
+
 
 
       }
     });
 
+// ############### BOSS CLASS END ##########################
 
+
+// ************ CONFIG *************************************
     var config = {
         type: Phaser.AUTO,
         width: 800,
@@ -393,6 +465,8 @@
         }
     };
 
+// ################# CONFIG END ############################
+
     // screen sizes
     var w = 800;
     var h = 650;
@@ -406,7 +480,9 @@
     var levelCount = 0;
     var maxBulletQueue = 3;
     var bulletQueue = 0;
-    var self;
+    var bossActive = false;
+    var self; // main game field
+
     // var platforms;
     var cursors; // keyboard
     var spacefield;
@@ -415,7 +491,7 @@
     var lastFired = 0;
 
     var boss;
-
+    var bossBullets;
     var bullets;
     var enemyBullets;
     var bossRockets;
@@ -424,15 +500,16 @@
     var progressBar;
 
     var fireButton;
-    var music;
+    var doomMusic;
     var game = new Phaser.Game(config);
     var aliens;
 
-    function explosionTo(x, y){
-      var boom = self.add.sprite(x, y, 'boom');
+    function explosionTo(x, y, scale=1){
+      var boom = self.add.sprite(x, y, 'boom').setScale(scale);
 
       boom.anims.play('explode');
     }
+
     function preload ()
     {
 
@@ -457,14 +534,17 @@
 
         starfield = this.add.tileSprite(400, 325, 800, 650, 'starfield');
 
-        music = this.sound.add("doom");
-        music.volume = 0.3;
-        music.play();
+        doomMusic = this.sound.add("doom");
+        marathonMusic = this.sound.add('marathon');
+        marathonMusic.volume = 0.3;
+        doomMusic.volume = 0.3;
+        doomMusic.play();
 
         // bullets
         bullets = this.physics.add.group({ classType: Bullet, runChildUpdate: true });
         enemyBullets = this.physics.add.group({ classType: EnemyBullet, runChildUpdate: true });
         bossRockets = this.physics.add.group({classType: BossRocket, runChildUpdate: true});
+        bossBullets = this.physics.add.group({classType: BossBullet, runChildUpdate: true});
 
         enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true });
 
@@ -582,26 +662,27 @@
       // this.physics.add.collider(bullets, aliens, bulletAndAlienCollision, null, this);
       this.physics.add.collider(bullets, enemies, bulletAndAlienClassCollision, null, this);
       this.physics.add.collider(enemyBullets, player, bulletAndPlayerCollision, null, this);
-
-      levelCount = 2;
+      this.physics.add.collider(bossBullets, player, bulletAndPlayerCollision, null, this);
+      this.physics.add.collider(bossRockets, player, bulletAndPlayerCollision, null, this);
+      this.physics.add.collider(bullets, boss, bulletAndAlienClassCollision, null, this)
 
       switch (levelCount) {
         // level 1
         case 0:
-          setWave(2);
+          setWave(5);
           if (simpleEnemiesCount < 2 && wavesCount > 0){
             randomSpawn(5, enemies);
             wavesCount--;
             console.log(wavesCount + " " + simpleEnemiesCount )
           }
-          if (wavesCount == 0 && simpleEnemiesCount == 0){
+          if (wavesCount === 0 && simpleEnemiesCount === 0){
             enemies.clear(true);
             newLevelSetUp();
           }
           break;
         // level 2
         case 1:
-          setWave(3);
+          setWave(5);
           if (simpleEnemiesCount < 3 && wavesCount > 0){
             randomSpawn(7, enemies);
             wavesCount--;
@@ -615,12 +696,29 @@
         // boss stage
         case 2:
           if (!waveSetted){
-          let bossEnemy = boss.get();
-          bossEnemy.place(200, 200);
-          bossEnemy.setVisible(true);
-          bossEnemy.setActive(true);
-          waveSetted = true;
-        }
+            let bossEnemy = boss.get();
+            bossEnemy.setHp(100, true);
+            bossEnemy.place(-100, 200);
+            bossEnemy.setVisible(true);
+            bossEnemy.setActive(true);
+            waveSetted = true;
+            bossActive = true;
+            simpleEnemiesCount++;
+            marathonMusic.play();
+            doomMusic.destroy();
+          }
+          if (simpleEnemiesCount < 2){
+            randomSpawn(3, enemies);
+            wavesCount--;
+          }
+
+          if (!bossActive){
+            levelCount++;
+          }
+          break;
+          case 3:
+            alert("Игра окончилась! Ваше итоговое очко: " + (100 - hp));
+            window.location.reload(false);
           break;
 
         default:
@@ -628,9 +726,10 @@
       }
     }
     }
+
     function setWave(count){
       if (!waveSetted){
-          wavesCount = 2;
+          wavesCount = count;
           waveSetted = true;
       }
     }
@@ -640,24 +739,22 @@
     }
     function bulletAndPlayerCollision(player, bullet){
 
-        hp = hp - 1;
+        hp = hp - bullet.damage;
         progressBar.clear();
         hpBar.setText(hp +'/100');
         progressBar.fillStyle(0x087316, 1);
         progressBar.fillRect(10, 24, hp, 10);
         if (hp < 1 ){
-          alert("GAME OVER!");
+          alert("Вы погибли! Игра окончена! Перезагрузите страницу, чтобы начать заново");
+          window.location.reload(false);
+
         }
         bullet.destroy();
     }
     function bulletAndAlienClassCollision(bullet, alien){
-
-      alien.takeHit(bullet);
-    }
-    function bulletAndAlienCollision(bullet, alien){
-      console.log("hey!");
-      bullet.destroy();
-      alien.destroy();
+      if (bullet.isFriendly){
+        alien.takeHit(bullet);
+      }
     }
 
     function getRandomInRange(min, max) {
@@ -667,15 +764,15 @@
     function randomSpawn(count, from){
       for (let i = 0 ; i < count; i++){
         let enemy = from.get();
-        let yCoordinate = 0;
-        let xCoordinate = 0;
+        let yCoordinate = -10;
+        let xCoordinate = -10;
         if (getRandomInRange(0,1) == 0){
           yCoordinate = getRandomInRange(0, h - 200);
         }
 
         if (yCoordinate > 0){
           if (getRandomInRange(0,1) == 0){
-            xCoordinate = w;
+            xCoordinate = w + 10;
           }
         } else {
           xCoordinate = getRandomInRange(0, w);
